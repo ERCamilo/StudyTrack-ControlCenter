@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CareerEditorialStatus {
+  added
+  in_verification
+  user_submitted
+  updated
+  failed
+  published
+}
+
+enum ReportLifecycleStatus {
+  new
+  under_review
+  resolved
+  closed
+}
+
+enum IngestionRequestStatus {
+  requested
+  extracting
+  candidate_ready
+  validation_failed
+  needs_review
+  approved
+  published
+  rejected
+}
+
+enum PublicationJobStatus {
+  pending_approval
+  approved
+  running
+  published
+  failed
+  rejected
+}
+
+enum AuditOutcome {
+  allowed
+  denied
+  succeeded
+  failed
+}
+
+model Career {
+  id          String                @id @default(cuid())
+  externalId  String                @unique
+  institution String
+  name        String
+  degreeType  String
+  status      CareerEditorialStatus @default(user_submitted)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  versions CareerVersion[]
+  reports  CurriculumReport[]
+}
+
+model CareerVersion {
+  id               String                @id @default(cuid())
+  careerId         String
+  version          String
+  status           CareerEditorialStatus
+  sourceSnapshotId String?
+  createdBy        String
+  createdAt        DateTime              @default(now())
+  publishedAt      DateTime?
+
+  career          Career           @relation(fields: [careerId], references: [id])
+  sourceSnapshot  SourceSnapshot?  @relation(fields: [sourceSnapshotId], references: [id])
+  publicationJobs PublicationJob[]
+
+  @@unique([careerId, version])
+}
+
+model CurriculumReport {
+  id              String                @id @default(cuid())
+  careerId        String
+  careerVersion   String
+  period          String
+  subjectId       String?
+  subjectText     String?
+  issueType       String
+  description     String
+  sourceReference String
+  status          ReportLifecycleStatus @default(new)
+  submittedAt     DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  career      Career       @relation(fields: [careerId], references: [id])
+  reviewTasks ReviewTask[]
+}
+
+model ReviewTask {
+  id          String    @id @default(cuid())
+  reportId    String
+  assigneeId  String?
+  state       String    @default("open")
+  outcome     String?
+  closingNote String?
+  createdAt   DateTime  @default(now())
+  closedAt    DateTime?
+
+  report CurriculumReport @relation(fields: [reportId], references: [id])
+}
+
+model IngestionRequest {
+  id              String                 @id @default(cuid())
+  sourceUrl       String
+  institution     String
+  careerName      String
+  degreeType      String
+  expectedPeriods Int
+  sourceType      String
+  notes           String?
+  status          IngestionRequestStatus @default(requested)
+  dispatchError   String?
+  requestedBy     String?
+  requestedAt     DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  candidates ExtractedCandidate[]
+}
+
+model SourceSnapshot {
+  id          String   @id @default(cuid())
+  sourceUrl   String
+  contentHash String
+  storageUrl  String?
+  capturedAt  DateTime @default(now())
+
+  careerVersions CareerVersion[]
+  candidates     ExtractedCandidate[]
+  publicationJobs PublicationJob[]
+}
+
+model ExtractedCandidate {
+  id                   String   @id @default(cuid())
+  requestId            String
+  sourceSnapshotId     String
+  extractedCatalogJson Json
+  validationErrors     Json
+  extractionMethod     String
+  confidence           Float?
+  receivedAt           DateTime @default(now())
+
+  request        IngestionRequest @relation(fields: [requestId], references: [id])
+  sourceSnapshot SourceSnapshot   @relation(fields: [sourceSnapshotId], references: [id])
+}
+
+model PublicationJob {
+  id               String               @id @default(cuid())
+  careerVersionId  String
+  sourceSnapshotId String
+  status           PublicationJobStatus @default(pending_approval)
+  approvedBy       String?
+  approvedAt       DateTime?
+  executedAt       DateTime?
+  artifactVersion  String?
+  failureReason    String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  careerVersion  CareerVersion  @relation(fields: [careerVersionId], references: [id])
+  sourceSnapshot SourceSnapshot @relation(fields: [sourceSnapshotId], references: [id])
+  artifacts      CatalogArtifact[]
+}
+
+model CatalogArtifact {
+  id               String   @id @default(cuid())
+  publicationJobId String
+  version          String
+  artifactPath     String
+  contentHash      String
+  createdAt        DateTime @default(now())
+
+  publicationJob PublicationJob @relation(fields: [publicationJobId], references: [id])
+}
+
+model AuditEvent {
+  id         String       @id @default(cuid())
+  actor      String
+  action     String
+  targetType String
+  targetId   String
+  outcome    AuditOutcome
+  reason     String?
+  metadata   Json?
+  occurredAt DateTime     @default(now())
+}

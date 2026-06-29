@@ -1,0 +1,8 @@
+node_modules/
+.npm-cache/
+.atl/
+.env
+.env.local
+.env.*.local
+dist/
+coverage/
