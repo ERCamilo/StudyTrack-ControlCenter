@@ -1,0 +1,23 @@
+{
+  "name": "studytrack-control-center",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:schema": "vitest run tests/schema.test.ts",
+    "typecheck": "tsc --noEmit",
+    "db:validate": "prisma validate --schema prisma/schema.prisma",
+    "db:format": "prisma format --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.24.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "prisma": "^6.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

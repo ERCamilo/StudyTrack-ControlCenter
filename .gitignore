@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.gh-cli/
+.atl/
+.env
+.env.local
+.env.*.local
+dist/
+coverage/
