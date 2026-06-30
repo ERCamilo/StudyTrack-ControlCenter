@@ -1,5 +1,6 @@
 node_modules/
 .npm-cache/
+.pnpm-store/
 .gh-cli/
 .atl/
 .env
