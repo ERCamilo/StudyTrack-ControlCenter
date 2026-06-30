@@ -36,25 +36,19 @@ publication jobs, source snapshots, and audit history.
 ## Commands
 
 ```bash
-npm install
-npm run test:schema
-npm test
-npm run typecheck
-npm run db:validate
-npm run server:dev
+pnpm install
+pnpm run test:schema
+pnpm test
+pnpm run typecheck
+pnpm run db:validate
+pnpm run server:dev
 ```
 
-If npm cannot write to the default user cache on Windows, use a project-local cache:
-
-```bash
-npm install --cache ./.npm-cache
-```
-
-`npm run db:validate` requires `DATABASE_URL` to be set. A local placeholder is
+`pnpm run db:validate` requires `DATABASE_URL` to be set. A local placeholder is
 enough for schema validation:
 
 ```bash
-DATABASE_URL="postgresql://user:password@localhost:5432/studytrack_control_center" npm run db:validate
+DATABASE_URL="postgresql://user:password@localhost:5432/studytrack_control_center" pnpm run db:validate
 ```
 
 ## Functional local intake flow
@@ -62,7 +56,7 @@ DATABASE_URL="postgresql://user:password@localhost:5432/studytrack_control_cente
 Start the Control Center API:
 
 ```bash
-npm run server:dev
+pnpm run server:dev
 ```
 
 The local API exposes:
