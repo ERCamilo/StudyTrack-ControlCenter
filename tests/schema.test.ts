@@ -200,6 +200,7 @@ describe('JSON Schema exports', () => {
         'ExtractedCandidate',
         'CareerVersion',
         'PublicationJob',
+        'PublicationApprovalInput',
         'AuditEvent',
       ]),
     );
@@ -220,6 +221,7 @@ describe('Database schema stubs', () => {
     expect(schema).toContain('workflowRunId');
     expect(schema).toContain('model SourceSnapshot ');
     expect(schema).toContain('model PublicationJob ');
+    expect(schema).toContain('approvalNote');
     expect(schema).toContain('model AuditEvent ');
   });
 });
