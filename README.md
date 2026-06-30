@@ -10,6 +10,8 @@ publication jobs, source snapshots, and audit history.
 
 - Zod contracts for:
   - `CurriculumReport`
+  - `CreateCurriculumReportInput`
+  - `ReviewTask`
   - `IngestionRequest`
   - `CreateIngestionRequestInput`
   - `N8nCandidateWebhook`
@@ -20,6 +22,10 @@ publication jobs, source snapshots, and audit history.
 - JSON Schema exports for public contracts.
 - n8n candidate intake mapping from webhook payloads into source snapshots,
   extracted candidates, and audit events.
+- Report intake mapping from public report submissions into review tasks and
+  audit events.
+- Review task lifecycle transitions for starting review, resolving findings,
+  and closing completed tasks.
 - PostgreSQL/Prisma migration-ready model stubs.
 - Schema tests for validation, lifecycle, candidate boundaries, and DB model coverage.
 

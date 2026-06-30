@@ -50,6 +50,20 @@ enum AuditOutcome {
   failed
 }
 
+enum ReviewTaskState {
+  open
+  in_review
+  resolved
+  closed
+}
+
+enum ReviewTaskOutcome {
+  catalog_update_required
+  not_reproducible
+  duplicate
+  out_of_scope
+}
+
 model Career {
   id          String                @id @default(cuid())
   externalId  String                @unique
@@ -91,6 +105,8 @@ model CurriculumReport {
   issueType       String
   description     String
   sourceReference String
+  reporterEmail   String?
+  evidenceUrl     String?
   status          ReportLifecycleStatus @default(new)
   submittedAt     DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
@@ -100,16 +116,19 @@ model CurriculumReport {
 }
 
 model ReviewTask {
-  id          String    @id @default(cuid())
+  id          String            @id @default(cuid())
   reportId    String
   assigneeId  String?
-  state       String    @default("open")
-  outcome     String?
+  state       ReviewTaskState   @default(open)
+  outcome     ReviewTaskOutcome?
   closingNote String?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime          @default(now())
   closedAt    DateTime?
 
   report CurriculumReport @relation(fields: [reportId], references: [id])
+
+  @@index([state])
+  @@index([assigneeId])
 }
 
 model IngestionRequest {
