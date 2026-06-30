@@ -187,6 +187,7 @@ model PublicationJob {
   status           PublicationJobStatus @default(pending_approval)
   approvedBy       String?
   approvedAt       DateTime?
+  approvalNote     String?
   executedAt       DateTime?
   artifactVersion  String?
   failureReason    String?

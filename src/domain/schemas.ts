@@ -138,6 +138,7 @@ export const publicationJobSchema = z
     status: publicationJobStatusSchema,
     approvedBy: nonEmptyString.optional(),
     approvedAt: isoDateTime.optional(),
+    approvalNote: nonEmptyString.optional(),
     executedAt: isoDateTime.optional(),
     artifactVersion: nonEmptyString.optional(),
     failureReason: nonEmptyString.optional(),

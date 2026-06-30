@@ -18,6 +18,7 @@ publication jobs, source snapshots, and audit history.
   - `ExtractedCandidate`
   - `CareerVersion`
   - `PublicationJob`
+  - `PublicationApprovalInput`
   - `AuditEvent`
 - JSON Schema exports for public contracts.
 - n8n candidate intake mapping from webhook payloads into source snapshots,
@@ -26,6 +27,9 @@ publication jobs, source snapshots, and audit history.
   audit events.
 - Review task lifecycle transitions for starting review, resolving findings,
   and closing completed tasks.
+- Publication approval gates that require human approval, no unresolved review
+  tasks, and no candidate validation errors before catalog artifacts can be
+  published.
 - PostgreSQL/Prisma migration-ready model stubs.
 - Schema tests for validation, lifecycle, candidate boundaries, and DB model coverage.
 
