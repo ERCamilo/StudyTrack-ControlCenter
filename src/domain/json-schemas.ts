@@ -1,4 +1,5 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { createIngestionRequestInputSchema, n8nCandidateWebhookSchema } from './n8n-intake.js';
 import {
   auditEventSchema,
   careerVersionSchema,
@@ -15,6 +16,14 @@ export const jsonSchemas = {
   }),
   IngestionRequest: zodToJsonSchema(ingestionRequestSchema, {
     name: 'IngestionRequest',
+    $refStrategy: 'none',
+  }),
+  CreateIngestionRequestInput: zodToJsonSchema(createIngestionRequestInputSchema, {
+    name: 'CreateIngestionRequestInput',
+    $refStrategy: 'none',
+  }),
+  N8nCandidateWebhook: zodToJsonSchema(n8nCandidateWebhookSchema, {
+    name: 'N8nCandidateWebhook',
     $refStrategy: 'none',
   }),
   ExtractedCandidate: zodToJsonSchema(extractedCandidateSchema, {

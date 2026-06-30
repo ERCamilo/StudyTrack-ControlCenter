@@ -146,14 +146,19 @@ model ExtractedCandidate {
   id                   String   @id @default(cuid())
   requestId            String
   sourceSnapshotId     String
+  workflowRunId        String?
+  intakeSource         String   @default("n8n")
   extractedCatalogJson Json
   validationErrors     Json
   extractionMethod     String
   confidence           Float?
+  rawPayload           Json?
   receivedAt           DateTime @default(now())
 
   request        IngestionRequest @relation(fields: [requestId], references: [id])
   sourceSnapshot SourceSnapshot   @relation(fields: [sourceSnapshotId], references: [id])
+
+  @@index([workflowRunId])
 }
 
 model PublicationJob {
