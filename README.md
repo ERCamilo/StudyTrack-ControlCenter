@@ -6,16 +6,20 @@ This project is intentionally separate from the static StudyTrack PWA. It owns f
 report intake, career ingestion requests, extracted candidates, human review,
 publication jobs, source snapshots, and audit history.
 
-## Current PR2 scope
+## Current scope
 
 - Zod contracts for:
   - `CurriculumReport`
   - `IngestionRequest`
+  - `CreateIngestionRequestInput`
+  - `N8nCandidateWebhook`
   - `ExtractedCandidate`
   - `CareerVersion`
   - `PublicationJob`
   - `AuditEvent`
 - JSON Schema exports for public contracts.
+- n8n candidate intake mapping from webhook payloads into source snapshots,
+  extracted candidates, and audit events.
 - PostgreSQL/Prisma migration-ready model stubs.
 - Schema tests for validation, lifecycle, candidate boundaries, and DB model coverage.
 

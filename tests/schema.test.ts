@@ -193,6 +193,8 @@ describe('JSON Schema exports', () => {
       expect.arrayContaining([
         'CurriculumReport',
         'IngestionRequest',
+        'CreateIngestionRequestInput',
+        'N8nCandidateWebhook',
         'ExtractedCandidate',
         'CareerVersion',
         'PublicationJob',
@@ -211,6 +213,7 @@ describe('Database schema stubs', () => {
     expect(schema).toContain('model CurriculumReport ');
     expect(schema).toContain('model IngestionRequest ');
     expect(schema).toContain('model ExtractedCandidate ');
+    expect(schema).toContain('workflowRunId');
     expect(schema).toContain('model SourceSnapshot ');
     expect(schema).toContain('model PublicationJob ');
     expect(schema).toContain('model AuditEvent ');
