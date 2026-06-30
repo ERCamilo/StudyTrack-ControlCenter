@@ -1,0 +1,113 @@
+{
+  "name": "StudyTrack - UASD Pensum to Control Center",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "name": "controlCenterBaseUrl", "value": "http://host.docker.internal:3000", "type": "string" },
+            { "name": "sourceUrl", "value": "https://app.uasd.edu.do/PensumGrado/?periodoV=999999&programa=P-ICIV&plan=000012&nivel=GR", "type": "string" },
+            { "name": "institution", "value": "Universidad Autónoma de Santo Domingo", "type": "string" },
+            { "name": "careerName", "value": "Ingeniería Civil", "type": "string" },
+            { "name": "plan", "value": "000012", "type": "string" },
+            { "name": "programCode", "value": "P-ICIV", "type": "string" },
+            { "name": "expectedPeriods", "value": 11, "type": "number" }
+          ]
+        }
+      },
+      "id": "set-uasd-params",
+      "name": "Set UASD Params",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.controlCenterBaseUrl + '/api/ingestion-requests' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { sourceUrl: $json.sourceUrl, institution: $json.institution, careerName: $json.careerName, degreeType: 'professional', expectedPeriods: $json.expectedPeriods, sourceType: 'official_page', requestedBy: 'n8n' } }}"
+      },
+      "id": "create-ingestion-request",
+      "name": "Create CC Ingestion Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, -120]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Set UASD Params').item.json.sourceUrl }}",
+        "responseFormat": "string",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "fetch-uasd-pensum",
+      "name": "Fetch UASD Pensum",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = String($json.body || $json.data || '');\nif (/Just a moment|Cloudflare|Enable JavaScript/i.test(html)) {\n  throw new Error('UASD returned an anti-bot/challenge page. Open the URL in a browser or provide captured table rows.');\n}\nconst rows = [...html.matchAll(/<tr[^>]*>([\\s\\S]*?)<\\/tr>/gi)].map(([, row]) => [...row.matchAll(/<t[dh][^>]*>([\\s\\S]*?)<\\/t[dh]>/gi)].map(([, cell]) => cell.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\\s+/g, ' ').trim())).filter((row) => row.length);\nreturn [{ json: { rows, capturedAt: new Date().toISOString() } }];"
+      },
+      "id": "extract-uasd-rows",
+      "name": "Extract UASD Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set UASD Params').item.json.controlCenterBaseUrl + '/api/uasd/pensum-candidates' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requestId: $('Create CC Ingestion Request').item.json.ingestionRequest.id, workflowRunId: $execution.id, source: { url: $('Set UASD Params').item.json.sourceUrl, capturedAt: $json.capturedAt }, metadata: { careerName: $('Set UASD Params').item.json.careerName, institution: $('Set UASD Params').item.json.institution, plan: $('Set UASD Params').item.json.plan, programCode: $('Set UASD Params').item.json.programCode }, rows: $json.rows } }}"
+      },
+      "id": "post-candidate",
+      "name": "Post Candidate to Control Center",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 120]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [[{ "node": "Set UASD Params", "type": "main", "index": 0 }]]
+    },
+    "Set UASD Params": {
+      "main": [[
+        { "node": "Create CC Ingestion Request", "type": "main", "index": 0 }
+      ]]
+    },
+    "Create CC Ingestion Request": {
+      "main": [[{ "node": "Fetch UASD Pensum", "type": "main", "index": 0 }]]
+    },
+    "Fetch UASD Pensum": {
+      "main": [[{ "node": "Extract UASD Rows", "type": "main", "index": 0 }]]
+    },
+    "Extract UASD Rows": {
+      "main": [[{ "node": "Post Candidate to Control Center", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "versionId": "studytrack-uasd-pensum-v1"
+}
