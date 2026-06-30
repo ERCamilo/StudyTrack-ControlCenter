@@ -1,5 +1,6 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { createIngestionRequestInputSchema, n8nCandidateWebhookSchema } from './n8n-intake.js';
+import { createCurriculumReportInputSchema, reviewTaskSchema } from './report-review.js';
 import {
   auditEventSchema,
   careerVersionSchema,
@@ -12,6 +13,14 @@ import {
 export const jsonSchemas = {
   CurriculumReport: zodToJsonSchema(curriculumReportSchema, {
     name: 'CurriculumReport',
+    $refStrategy: 'none',
+  }),
+  CreateCurriculumReportInput: zodToJsonSchema(createCurriculumReportInputSchema, {
+    name: 'CreateCurriculumReportInput',
+    $refStrategy: 'none',
+  }),
+  ReviewTask: zodToJsonSchema(reviewTaskSchema, {
+    name: 'ReviewTask',
     $refStrategy: 'none',
   }),
   IngestionRequest: zodToJsonSchema(ingestionRequestSchema, {

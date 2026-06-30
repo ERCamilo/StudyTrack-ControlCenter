@@ -38,6 +38,8 @@ export const curriculumReportSchema = z
     ]),
     description: nonEmptyString,
     sourceReference: nonEmptyString,
+    reporterEmail: z.string().email().optional(),
+    evidenceUrl: z.string().url().optional(),
     status: reportLifecycleStatusSchema.default('new'),
     submittedAt: isoDateTime.optional(),
   })
