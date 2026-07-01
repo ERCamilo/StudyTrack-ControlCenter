@@ -9,6 +9,7 @@ import {
   extractedCandidateSchema,
   ingestionRequestSchema,
   publicationJobSchema,
+  uasdPensumDraftSchema,
 } from './schemas.js';
 
 export const jsonSchemas = {
@@ -38,6 +39,10 @@ export const jsonSchemas = {
   }),
   ExtractedCandidate: zodToJsonSchema(extractedCandidateSchema, {
     name: 'ExtractedCandidate',
+    $refStrategy: 'none',
+  }),
+  UasdPensumDraft: zodToJsonSchema(uasdPensumDraftSchema, {
+    name: 'UasdPensumDraft',
     $refStrategy: 'none',
   }),
   CareerVersion: zodToJsonSchema(careerVersionSchema, {

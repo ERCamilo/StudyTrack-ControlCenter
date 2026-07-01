@@ -99,6 +99,36 @@ export const extractedCandidateSchema = z
     validationStatus: candidate.validationErrors.some((error) => error.severity === 'error') ? 'invalid' : 'valid',
   }));
 
+export const uasdPensumDraftStatusSchema = z.enum([
+  'draft_requested',
+  'dispatch_failed',
+  'candidate_ready',
+  'needs_review',
+  'discarded',
+  'published',
+]);
+
+export const uasdPensumDraftSchema = z
+  .object({
+    id: nonEmptyString,
+    requestId: nonEmptyString,
+    status: uasdPensumDraftStatusSchema.default('draft_requested'),
+    institution: z.literal('Universidad Autónoma de Santo Domingo'),
+    careerName: nonEmptyString,
+    programCode: nonEmptyString,
+    plan: nonEmptyString,
+    sourceUrl: z.string().url(),
+    expectedPeriods: z.number().int().positive(),
+    dispatchFailedAt: isoDateTime.optional(),
+    retriedAt: isoDateTime.optional(),
+    candidateReceivedAt: isoDateTime.optional(),
+    discardedAt: isoDateTime.optional(),
+    publishedAt: isoDateTime.optional(),
+    createdAt: isoDateTime.optional(),
+    updatedAt: isoDateTime.optional(),
+  })
+  .strict();
+
 export const careerEditorialStatusSchema = z.enum([
   'added',
   'in_verification',
@@ -187,6 +217,7 @@ export const auditEventSchema = z
 export type CurriculumReport = z.infer<typeof curriculumReportSchema>;
 export type IngestionRequest = z.infer<typeof ingestionRequestSchema>;
 export type ExtractedCandidate = z.infer<typeof extractedCandidateSchema>;
+export type UasdPensumDraft = z.infer<typeof uasdPensumDraftSchema>;
 export type CareerVersion = z.infer<typeof careerVersionSchema>;
 export type PublicationJob = z.infer<typeof publicationJobSchema>;
 export type AuditEvent = z.infer<typeof auditEventSchema>;
