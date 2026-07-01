@@ -219,6 +219,9 @@ describe('Database schema stubs', () => {
     expect(schema).toContain('model IngestionRequest ');
     expect(schema).toContain('model ExtractedCandidate ');
     expect(schema).toContain('workflowRunId');
+    expect(schema).toContain('model UasdPensumDraft ');
+    expect(schema).toContain('enum UasdPensumDraftStatus');
+    expect(schema).toContain('@@index([institution, programCode, plan, status])');
     expect(schema).toContain('model SourceSnapshot ');
     expect(schema).toContain('model PublicationJob ');
     expect(schema).toContain('approvalNote');

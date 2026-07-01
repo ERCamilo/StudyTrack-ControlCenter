@@ -64,6 +64,15 @@ enum ReviewTaskOutcome {
   out_of_scope
 }
 
+enum UasdPensumDraftStatus {
+  draft_requested
+  dispatch_failed
+  candidate_ready
+  needs_review
+  discarded
+  published
+}
+
 model Career {
   id          String                @id @default(cuid())
   externalId  String                @unique
@@ -116,13 +125,13 @@ model CurriculumReport {
 }
 
 model ReviewTask {
-  id          String            @id @default(cuid())
+  id          String             @id @default(cuid())
   reportId    String
   assigneeId  String?
-  state       ReviewTaskState   @default(open)
+  state       ReviewTaskState    @default(open)
   outcome     ReviewTaskOutcome?
   closingNote String?
-  createdAt   DateTime          @default(now())
+  createdAt   DateTime           @default(now())
   closedAt    DateTime?
 
   report CurriculumReport @relation(fields: [reportId], references: [id])
@@ -147,6 +156,31 @@ model IngestionRequest {
   updatedAt       DateTime               @updatedAt
 
   candidates ExtractedCandidate[]
+  uasdDraft  UasdPensumDraft?
+}
+
+model UasdPensumDraft {
+  id                  String                @id @default(cuid())
+  requestId           String                @unique
+  status              UasdPensumDraftStatus @default(draft_requested)
+  institution         String
+  careerName          String
+  programCode         String
+  plan                String
+  sourceUrl           String
+  expectedPeriods     Int
+  dispatchFailedAt    DateTime?
+  retriedAt           DateTime?
+  candidateReceivedAt DateTime?
+  discardedAt         DateTime?
+  publishedAt         DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  request IngestionRequest @relation(fields: [requestId], references: [id])
+
+  @@index([status])
+  @@index([institution, programCode, plan, status])
 }
 
 model SourceSnapshot {
@@ -156,8 +190,8 @@ model SourceSnapshot {
   storageUrl  String?
   capturedAt  DateTime @default(now())
 
-  careerVersions CareerVersion[]
-  candidates     ExtractedCandidate[]
+  careerVersions  CareerVersion[]
+  candidates      ExtractedCandidate[]
   publicationJobs PublicationJob[]
 }
 
@@ -194,8 +228,8 @@ model PublicationJob {
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
-  careerVersion  CareerVersion  @relation(fields: [careerVersionId], references: [id])
-  sourceSnapshot SourceSnapshot @relation(fields: [sourceSnapshotId], references: [id])
+  careerVersion  CareerVersion     @relation(fields: [careerVersionId], references: [id])
+  sourceSnapshot SourceSnapshot    @relation(fields: [sourceSnapshotId], references: [id])
   artifacts      CatalogArtifact[]
 }
 
