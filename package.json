@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:validate": "prisma validate --schema prisma/schema.prisma",
     "db:format": "prisma format --schema prisma/schema.prisma",
-    "server:dev": "node --experimental-strip-types src/server/index.ts"
+    "server:dev": "tsx src/server/index.ts"
   },
   "dependencies": {
     "zod": "^3.25.76",
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/node": "^22.15.3",
     "prisma": "^6.19.3",
+    "tsx": "^4.22.4",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
   }
