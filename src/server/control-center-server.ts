@@ -27,6 +27,22 @@ const uasdCandidateRequestSchema = z
   })
   .strict();
 
+const uasdDraftRequestSchema = z
+  .object({
+    institution: z.literal('Universidad Autónoma de Santo Domingo'),
+    careerName: z.string().trim().min(1),
+    programCode: z.string().trim().min(1),
+    plan: z.string().trim().min(1),
+    sourceUrl: z.string().url(),
+    expectedPeriods: z.number().int().positive(),
+    requestedBy: z.string().email().optional().or(z.literal('')),
+    notes: z.string().trim().optional(),
+  })
+  .strict();
+
+const uasdDraftPatchSchema = uasdDraftRequestSchema.partial().omit({ institution: true });
+const terminalDraftStatuses = new Set(['discarded', 'published']);
+
 async function readJson(request: IncomingMessage) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
@@ -41,19 +57,62 @@ function send(response: ServerResponse, status: number, body: unknown) {
 export function createControlCenterServer() {
   const store = {
     ingestionRequests: [] as Array<Record<string, unknown>>,
+    drafts: [] as Array<Record<string, unknown>>,
     sourceSnapshots: [] as Array<Record<string, unknown>>,
     candidates: [] as Array<Record<string, unknown>>,
     auditEvents: [] as Array<Record<string, unknown>>,
   };
 
+  const isActiveDraft = (draft: Record<string, unknown>) =>
+    draft.status !== 'discarded' && draft.status !== 'published';
+
+  const hasActiveDuplicate = (input: { institution?: string; programCode?: string; plan?: string }, exceptDraftId?: unknown) =>
+    store.drafts.some(
+      (draft) =>
+        draft.id !== exceptDraftId &&
+        draft.institution === (input.institution || 'Universidad Autónoma de Santo Domingo') &&
+        draft.programCode === input.programCode &&
+        draft.plan === input.plan &&
+        isActiveDraft(draft),
+    );
+
+  const buildN8nPayload = (draft: Record<string, unknown>) => ({
+    controlCenterBaseUrl: 'http://host.docker.internal:3000',
+    requestId: draft.requestId,
+    sourceUrl: draft.sourceUrl,
+    institution: draft.institution,
+    careerName: draft.careerName,
+    plan: draft.plan,
+    programCode: draft.programCode,
+    expectedPeriods: draft.expectedPeriods,
+  });
+
+  const dispatchToN8n = async (_payload: Record<string, unknown>) => 'not_configured' as const;
+
   const server = createServer(async (request, response) => {
     try {
-      if (request.method === 'GET' && request.url === '/health') {
+      const pathname = new URL(request.url || '/', 'http://127.0.0.1').pathname;
+
+      if (request.method === 'GET' && pathname === '/health') {
         send(response, 200, { ok: true });
         return;
       }
 
-      if (request.method === 'POST' && request.url === '/api/ingestion-requests') {
+      if (request.method === 'GET' && pathname === '/api/config/universities') {
+        send(response, 200, {
+          universities: [
+            {
+              id: 'uasd',
+              name: 'Universidad Autónoma de Santo Domingo',
+              supportedSourceTypes: ['official_page'],
+              supportedWorkflow: 'uasd-pensum-ingestion',
+            },
+          ],
+        });
+        return;
+      }
+
+      if (request.method === 'POST' && pathname === '/api/ingestion-requests') {
         const input = createIngestionRequestInputSchema.parse(await readJson(request));
         const ingestionRequest = {
           id: `req_${String(store.ingestionRequests.length + 1).padStart(6, '0')}`,
@@ -65,7 +124,132 @@ export function createControlCenterServer() {
         return;
       }
 
-      if (request.method === 'POST' && request.url === '/api/uasd/pensum-candidates') {
+      if (request.method === 'GET' && pathname === '/api/uasd/pensum-drafts') {
+        send(response, 200, { drafts: store.drafts });
+        return;
+      }
+
+      if (request.method === 'POST' && pathname === '/api/uasd/pensum-drafts') {
+        const input = uasdDraftRequestSchema.parse(await readJson(request));
+        if (hasActiveDuplicate(input)) {
+          send(response, 409, { error: 'duplicate_draft', details: 'This UASD program and plan already has an active draft.' });
+          return;
+        }
+
+        const ingestionRequest = {
+          id: `req_${String(store.ingestionRequests.length + 1).padStart(6, '0')}`,
+          sourceUrl: input.sourceUrl,
+          institution: input.institution,
+          careerName: input.careerName,
+          degreeType: 'professional',
+          expectedPeriods: input.expectedPeriods,
+          sourceType: 'official_page',
+          notes: input.notes || undefined,
+          status: 'requested',
+          requestedBy: input.requestedBy || 'control-center-wizard',
+          requestedAt: new Date().toISOString(),
+        };
+        store.ingestionRequests.push(ingestionRequest);
+
+        const draft = {
+          id: `draft_${String(store.drafts.length + 1).padStart(6, '0')}`,
+          requestId: ingestionRequest.id,
+          status: 'draft_requested',
+          institution: input.institution,
+          careerName: input.careerName,
+          programCode: input.programCode,
+          plan: input.plan,
+          sourceUrl: input.sourceUrl,
+          expectedPeriods: input.expectedPeriods,
+          createdAt: new Date().toISOString(),
+        };
+        store.drafts.push(draft);
+
+        const payload = buildN8nPayload(draft);
+        const dispatchStatus = await dispatchToN8n(payload);
+
+        send(response, 201, { draft, ingestionRequest, n8n: { dispatchStatus, payload } });
+        return;
+      }
+
+      const draftActionMatch = pathname.match(/^\/api\/uasd\/pensum-drafts\/([^/]+)(?:\/([^/]+))?$/);
+      if (draftActionMatch) {
+        const [, draftId, action] = draftActionMatch;
+        const draft = store.drafts.find((item) => item.id === draftId);
+        if (!draft) {
+          send(response, 404, { error: 'draft_not_found' });
+          return;
+        }
+
+        if (request.method === 'PATCH' && !action) {
+          if (terminalDraftStatuses.has(String(draft.status))) {
+            send(response, 409, { error: 'terminal_draft_locked' });
+            return;
+          }
+          const input = uasdDraftPatchSchema.parse(await readJson(request));
+          if (
+            (input.programCode || input.plan) &&
+            hasActiveDuplicate(
+              {
+                institution: String(draft.institution),
+                programCode: input.programCode || String(draft.programCode),
+                plan: input.plan || String(draft.plan),
+              },
+              draft.id,
+            )
+          ) {
+            send(response, 409, { error: 'duplicate_draft' });
+            return;
+          }
+          Object.assign(draft, {
+            ...input,
+            updatedAt: new Date().toISOString(),
+          });
+          send(response, 200, { draft });
+          return;
+        }
+
+        if (request.method === 'POST' && action === 'retry') {
+          if (terminalDraftStatuses.has(String(draft.status))) {
+            send(response, 409, { error: 'terminal_draft_locked' });
+            return;
+          }
+          const payload = buildN8nPayload(draft);
+          const dispatchStatus = await dispatchToN8n(payload);
+          Object.assign(draft, { status: 'draft_requested', retriedAt: new Date().toISOString() });
+          send(response, 200, { draft, n8n: { dispatchStatus, payload } });
+          return;
+        }
+
+        if (request.method === 'POST' && action === 'discard') {
+          if (terminalDraftStatuses.has(String(draft.status))) {
+            send(response, 409, { error: 'terminal_draft_locked' });
+            return;
+          }
+          Object.assign(draft, { status: 'discarded', discardedAt: new Date().toISOString() });
+          send(response, 200, { draft });
+          return;
+        }
+
+        if (request.method === 'POST' && action === 'publish') {
+          if (terminalDraftStatuses.has(String(draft.status))) {
+            send(response, 409, { error: 'terminal_draft_locked' });
+            return;
+          }
+          const candidate = store.candidates.find(
+            (item) => item.requestId === draft.requestId && item.validationStatus === 'valid',
+          );
+          if (!candidate) {
+            send(response, 409, { error: 'valid_candidate_required' });
+            return;
+          }
+          Object.assign(draft, { status: 'published', publishedAt: new Date().toISOString() });
+          send(response, 200, { draft, candidate });
+          return;
+        }
+      }
+
+      if (request.method === 'POST' && pathname === '/api/uasd/pensum-candidates') {
         const input = uasdCandidateRequestSchema.parse(await readJson(request));
         const parsed = parseUasdPensumRows(input.rows, {
           ...input.metadata,
@@ -89,6 +273,13 @@ export function createControlCenterServer() {
         store.sourceSnapshots.push(intake.sourceSnapshot);
         store.candidates.push(intake.extractedCandidate);
         store.auditEvents.push(intake.auditEvent);
+        const draft = store.drafts.find((item) => item.requestId === input.requestId);
+        if (draft && !terminalDraftStatuses.has(String(draft.status))) {
+          Object.assign(draft, {
+            status: intake.extractedCandidate.validationStatus === 'valid' ? 'candidate_ready' : 'needs_review',
+            candidateReceivedAt: new Date().toISOString(),
+          });
+        }
         send(response, 202, {
           ...intake,
           summary: { periods: parsed.catalog.periods.length, subjects: parsed.subjectCount, credits: parsed.totalCredits },
