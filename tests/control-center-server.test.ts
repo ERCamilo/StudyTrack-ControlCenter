@@ -51,6 +51,16 @@ async function createUasdDraft(baseUrl: string, overrides: Record<string, unknow
   return postJson(`${baseUrl}/api/uasd/pensum-drafts`, uasdDraftInput(overrides));
 }
 
+async function startServerWithFailingN8nWebhook() {
+  const n8n = createControlCenterServer();
+  const n8nRunning = await n8n.listen(0);
+  servers.push(n8nRunning);
+  const app = createControlCenterServer({ n8nUasdWebhookUrl: `http://127.0.0.1:${n8nRunning.port}/missing` });
+  const running = await app.listen(0);
+  servers.push(running);
+  return { app, baseUrl: `http://127.0.0.1:${running.port}` };
+}
+
 async function postValidUasdCandidate(baseUrl: string, requestId: string, overrides: Record<string, unknown> = {}) {
   return postJson(`${baseUrl}/api/uasd/pensum-candidates`, {
     requestId,
@@ -207,6 +217,21 @@ describe('Control Center HTTP base', () => {
 
     expect(patch.status).toBe(409);
     expect(await patch.json()).toMatchObject({ error: 'duplicate_draft' });
+  });
+
+  it('keeps draft creation successful when n8n dispatch fails', async () => {
+    const { app, baseUrl } = await startServerWithFailingN8nWebhook();
+
+    const draft = await createUasdDraft(baseUrl);
+    const retry = await postJson(`${baseUrl}/api/uasd/pensum-drafts/${draft.json.draft.id}/retry`, {});
+
+    expect(draft.response.status).toBe(201);
+    expect(draft.json.n8n.dispatchStatus).toBe('failed');
+    expect(draft.json.draft.status).toBe('dispatch_failed');
+    expect(retry.response.status).toBe(200);
+    expect(retry.json.n8n.dispatchStatus).toBe('failed');
+    expect(retry.json.draft.status).toBe('dispatch_failed');
+    expect(app.snapshot().drafts).toHaveLength(1);
   });
 
   it('allows a new draft after the previous matching draft is published', async () => {

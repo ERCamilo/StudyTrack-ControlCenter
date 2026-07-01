@@ -11,20 +11,22 @@ describe('n8n UASD workflow', () => {
     expect(workflow.nodes.map((node: { name: string }) => node.name)).toEqual(
       expect.arrayContaining([
         'Set UASD Params',
-        'Create CC Ingestion Request',
+        'Wizard Webhook',
         'Fetch UASD Pensum',
         'Extract UASD Rows',
         'Post Candidate to Control Center',
       ]),
     );
-    expect(JSON.stringify(workflow)).toContain('/api/ingestion-requests');
     expect(JSON.stringify(workflow)).toContain('/api/uasd/pensum-candidates');
+    expect(JSON.stringify(workflow)).toContain('studytrack/uasd-pensum');
+    expect(JSON.stringify(workflow)).toContain('$json.body?.sourceUrl');
     expect(JSON.stringify(workflow)).toContain('P-ICIV');
     expect(workflow.active).toBe(false);
   });
 
-  it('runs request creation before posting the extracted candidate', () => {
-    expect(workflow.connections['Create CC Ingestion Request'].main[0][0].node).toBe('Fetch UASD Pensum');
+  it('runs wizard payload extraction before posting the extracted candidate', () => {
+    expect(workflow.connections['Wizard Webhook'].main[0][0].node).toBe('Set UASD Params');
+    expect(workflow.connections['Set UASD Params'].main[0][0].node).toBe('Fetch UASD Pensum');
     expect(workflow.connections['Extract UASD Rows'].main[0][0].node).toBe('Post Candidate to Control Center');
   });
 });
