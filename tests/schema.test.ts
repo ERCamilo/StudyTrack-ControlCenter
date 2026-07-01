@@ -7,6 +7,7 @@ import {
   extractedCandidateSchema,
   ingestionRequestSchema,
   publicationJobSchema,
+  uasdPensumDraftSchema,
 } from '../src/domain/schemas.js';
 import { jsonSchemas } from '../src/domain/json-schemas.js';
 
@@ -124,6 +125,24 @@ describe('ExtractedCandidate schema', () => {
   });
 });
 
+describe('UasdPensumDraft schema', () => {
+  it('tracks the operator draft lifecycle for UASD pensum ingestion', () => {
+    const parsed = uasdPensumDraftSchema.parse({
+      id: 'draft_2026_0001',
+      requestId: 'req_2026_0001',
+      institution: 'Universidad Autónoma de Santo Domingo',
+      careerName: 'Ingeniería Civil',
+      programCode: 'P-ICIV',
+      plan: '000012',
+      sourceUrl: 'https://app.uasd.edu.do/PensumGrado/?periodoV=999999&programa=P-ICIV&plan=000012&nivel=GR',
+      expectedPeriods: 11,
+    });
+
+    expect(parsed.status).toBe('draft_requested');
+    expect(parsed.programCode).toBe('P-ICIV');
+  });
+});
+
 describe('Lifecycle and publication schemas', () => {
   it('tracks career editorial state and version metadata', () => {
     const parsed = careerVersionSchema.parse({
@@ -198,6 +217,7 @@ describe('JSON Schema exports', () => {
         'CreateIngestionRequestInput',
         'N8nCandidateWebhook',
         'ExtractedCandidate',
+        'UasdPensumDraft',
         'CareerVersion',
         'PublicationJob',
         'PublicationApprovalInput',
