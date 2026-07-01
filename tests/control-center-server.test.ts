@@ -87,8 +87,11 @@ afterEach(async () => {
 describe('Control Center HTTP base', () => {
   it('serves university configuration for operator clients', async () => {
     const { baseUrl } = await startServer();
+    const wizard = await fetch(`${baseUrl}/`);
     const config = await getJson(`${baseUrl}/api/config/universities`);
 
+    expect(wizard.status).toBe(200);
+    expect(await wizard.text()).toContain('New UASD draft');
     expect(config.response.status).toBe(200);
     expect(config.json.universities[0]).toMatchObject({
       id: 'uasd',

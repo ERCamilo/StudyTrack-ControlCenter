@@ -2,8 +2,10 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { z } from 'zod';
 import { buildN8nCandidateIntake, createIngestionRequestInputSchema } from '../domain/n8n-intake.js';
 import { parseUasdPensumRows } from '../ingestion/uasd-pensum.js';
+import { renderControlCenterWizard } from './control-center-ui.js';
 
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8' };
+const htmlHeaders = { 'content-type': 'text/html; charset=utf-8' };
 
 const uasdCandidateRequestSchema = z
   .object({
@@ -52,6 +54,11 @@ async function readJson(request: IncomingMessage) {
 function send(response: ServerResponse, status: number, body: unknown) {
   response.writeHead(status, jsonHeaders);
   response.end(JSON.stringify(body));
+}
+
+function sendHtml(response: ServerResponse, html: string) {
+  response.writeHead(200, htmlHeaders);
+  response.end(html);
 }
 
 export function createControlCenterServer(options: { n8nUasdWebhookUrl?: string } = {}) {
@@ -105,6 +112,11 @@ export function createControlCenterServer(options: { n8nUasdWebhookUrl?: string 
   const server = createServer(async (request, response) => {
     try {
       const pathname = new URL(request.url || '/', 'http://127.0.0.1').pathname;
+
+      if (request.method === 'GET' && pathname === '/') {
+        sendHtml(response, renderControlCenterWizard());
+        return;
+      }
 
       if (request.method === 'GET' && pathname === '/health') {
         send(response, 200, { ok: true });
