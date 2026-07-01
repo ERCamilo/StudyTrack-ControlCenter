@@ -2,24 +2,30 @@
   "name": "StudyTrack - UASD Pensum to Control Center",
   "nodes": [
     {
-      "parameters": {},
-      "id": "manual-trigger",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "studytrack/uasd-pensum",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wizard-webhook",
+      "name": "Wizard Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
       "position": [0, 0]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            { "name": "controlCenterBaseUrl", "value": "http://host.docker.internal:3000", "type": "string" },
-            { "name": "sourceUrl", "value": "https://app.uasd.edu.do/PensumGrado/?periodoV=999999&programa=P-ICIV&plan=000012&nivel=GR", "type": "string" },
-            { "name": "institution", "value": "Universidad Autónoma de Santo Domingo", "type": "string" },
-            { "name": "careerName", "value": "Ingeniería Civil", "type": "string" },
-            { "name": "plan", "value": "000012", "type": "string" },
-            { "name": "programCode", "value": "P-ICIV", "type": "string" },
-            { "name": "expectedPeriods", "value": 11, "type": "number" }
+            { "name": "controlCenterBaseUrl", "value": "={{ $json.body?.controlCenterBaseUrl || $json.controlCenterBaseUrl || 'http://host.docker.internal:3000' }}", "type": "string" },
+            { "name": "requestId", "value": "={{ $json.body?.requestId || $json.requestId || '' }}", "type": "string" },
+            { "name": "sourceUrl", "value": "={{ $json.body?.sourceUrl || $json.sourceUrl || 'https://app.uasd.edu.do/PensumGrado/?periodoV=999999&programa=P-ICIV&plan=000012&nivel=GR' }}", "type": "string" },
+            { "name": "institution", "value": "={{ $json.body?.institution || $json.institution || 'Universidad Autónoma de Santo Domingo' }}", "type": "string" },
+            { "name": "careerName", "value": "={{ $json.body?.careerName || $json.careerName || 'Ingeniería Civil' }}", "type": "string" },
+            { "name": "plan", "value": "={{ $json.body?.plan || $json.plan || '000012' }}", "type": "string" },
+            { "name": "programCode", "value": "={{ $json.body?.programCode || $json.programCode || 'P-ICIV' }}", "type": "string" },
+            { "name": "expectedPeriods", "value": "={{ Number($json.body?.expectedPeriods || $json.expectedPeriods || 11) }}", "type": "number" }
           ]
         }
       },
@@ -28,20 +34,6 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [220, 0]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.controlCenterBaseUrl + '/api/ingestion-requests' }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ { sourceUrl: $json.sourceUrl, institution: $json.institution, careerName: $json.careerName, degreeType: 'professional', expectedPeriods: $json.expectedPeriods, sourceType: 'official_page', requestedBy: 'n8n' } }}"
-      },
-      "id": "create-ingestion-request",
-      "name": "Create CC Ingestion Request",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [460, -120]
     },
     {
       "parameters": {
@@ -77,7 +69,7 @@
         "url": "={{ $('Set UASD Params').item.json.controlCenterBaseUrl + '/api/uasd/pensum-candidates' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { requestId: $('Create CC Ingestion Request').item.json.ingestionRequest.id, workflowRunId: $execution.id, source: { url: $('Set UASD Params').item.json.sourceUrl, capturedAt: $json.capturedAt }, metadata: { careerName: $('Set UASD Params').item.json.careerName, institution: $('Set UASD Params').item.json.institution, plan: $('Set UASD Params').item.json.plan, programCode: $('Set UASD Params').item.json.programCode }, rows: $json.rows } }}"
+        "jsonBody": "={{ { requestId: $('Set UASD Params').item.json.requestId, workflowRunId: $execution.id, source: { url: $('Set UASD Params').item.json.sourceUrl, capturedAt: $json.capturedAt }, metadata: { careerName: $('Set UASD Params').item.json.careerName, institution: $('Set UASD Params').item.json.institution, plan: $('Set UASD Params').item.json.plan, programCode: $('Set UASD Params').item.json.programCode }, rows: $json.rows } }}"
       },
       "id": "post-candidate",
       "name": "Post Candidate to Control Center",
@@ -87,16 +79,13 @@
     }
   ],
   "connections": {
-    "Manual Trigger": {
+    "Wizard Webhook": {
       "main": [[{ "node": "Set UASD Params", "type": "main", "index": 0 }]]
     },
     "Set UASD Params": {
       "main": [[
-        { "node": "Create CC Ingestion Request", "type": "main", "index": 0 }
+        { "node": "Fetch UASD Pensum", "type": "main", "index": 0 }
       ]]
-    },
-    "Create CC Ingestion Request": {
-      "main": [[{ "node": "Fetch UASD Pensum", "type": "main", "index": 0 }]]
     },
     "Fetch UASD Pensum": {
       "main": [[{ "node": "Extract UASD Rows", "type": "main", "index": 0 }]]

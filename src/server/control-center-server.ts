@@ -54,7 +54,7 @@ function send(response: ServerResponse, status: number, body: unknown) {
   response.end(JSON.stringify(body));
 }
 
-export function createControlCenterServer() {
+export function createControlCenterServer(options: { n8nUasdWebhookUrl?: string } = {}) {
   const store = {
     ingestionRequests: [] as Array<Record<string, unknown>>,
     drafts: [] as Array<Record<string, unknown>>,
@@ -87,7 +87,20 @@ export function createControlCenterServer() {
     expectedPeriods: draft.expectedPeriods,
   });
 
-  const dispatchToN8n = async (_payload: Record<string, unknown>) => 'not_configured' as const;
+  const dispatchToN8n = async (payload: Record<string, unknown>) => {
+    if (!options.n8nUasdWebhookUrl) return 'not_configured' as const;
+    try {
+      const result = await fetch(options.n8nUasdWebhookUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!result.ok) return 'failed' as const;
+      return 'sent' as const;
+    } catch {
+      return 'failed' as const;
+    }
+  };
 
   const server = createServer(async (request, response) => {
     try {
@@ -167,6 +180,9 @@ export function createControlCenterServer() {
 
         const payload = buildN8nPayload(draft);
         const dispatchStatus = await dispatchToN8n(payload);
+        if (dispatchStatus === 'failed') {
+          Object.assign(draft, { status: 'dispatch_failed', dispatchFailedAt: new Date().toISOString() });
+        }
 
         send(response, 201, { draft, ingestionRequest, n8n: { dispatchStatus, payload } });
         return;
@@ -216,7 +232,13 @@ export function createControlCenterServer() {
           }
           const payload = buildN8nPayload(draft);
           const dispatchStatus = await dispatchToN8n(payload);
-          Object.assign(draft, { status: 'draft_requested', retriedAt: new Date().toISOString() });
+          const retriedAt = new Date().toISOString();
+          Object.assign(
+            draft,
+            dispatchStatus === 'failed'
+              ? { status: 'dispatch_failed', retriedAt, dispatchFailedAt: retriedAt }
+              : { status: 'draft_requested', retriedAt },
+          );
           send(response, 200, { draft, n8n: { dispatchStatus, payload } });
           return;
         }
