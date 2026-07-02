@@ -43,6 +43,22 @@ const uasdDraftRequestSchema = z
   .strict();
 
 const uasdDraftPatchSchema = uasdDraftRequestSchema.partial().omit({ institution: true });
+const uasdCandidatePatchSchema = z
+  .object({
+    extractedCatalogJson: z.unknown(),
+    validationErrors: z
+      .array(
+        z
+          .object({
+            path: z.string().trim().min(1),
+            message: z.string().trim().min(1),
+            severity: z.enum(['error', 'warning']),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
 const terminalDraftStatuses = new Set(['discarded', 'published']);
 
 async function readJson(request: IncomingMessage) {
@@ -93,6 +109,22 @@ export function createControlCenterServer(options: { n8nUasdWebhookUrl?: string 
     programCode: draft.programCode,
     expectedPeriods: draft.expectedPeriods,
   });
+
+  const findCandidateForDraft = (draft: Record<string, unknown>) =>
+    store.candidates.find((item) => item.requestId === draft.requestId);
+
+  const summarizeCandidate = (candidate: Record<string, unknown>) => {
+    const catalog = candidate.extractedCatalogJson as { periods?: Array<{ subjects?: Array<{ credits?: number }> }> };
+    const periods = Array.isArray(catalog?.periods) ? catalog.periods : [];
+    const subjects = periods.flatMap((period) => (Array.isArray(period.subjects) ? period.subjects : []));
+    return {
+      periods: periods.length,
+      subjects: subjects.length,
+      credits: subjects.reduce((total, subject) => total + Number(subject.credits || 0), 0),
+      validationStatus: candidate.validationStatus,
+      validationErrors: candidate.validationErrors,
+    };
+  };
 
   const dispatchToN8n = async (payload: Record<string, unknown>) => {
     if (!options.n8nUasdWebhookUrl) return 'not_configured' as const;
@@ -206,6 +238,40 @@ export function createControlCenterServer(options: { n8nUasdWebhookUrl?: string 
         const draft = store.drafts.find((item) => item.id === draftId);
         if (!draft) {
           send(response, 404, { error: 'draft_not_found' });
+          return;
+        }
+
+        if (request.method === 'GET' && action === 'review') {
+          const candidate = findCandidateForDraft(draft);
+          if (!candidate) {
+            send(response, 404, { error: 'candidate_not_found' });
+            return;
+          }
+          send(response, 200, { draft, candidate, summary: summarizeCandidate(candidate) });
+          return;
+        }
+
+        if (request.method === 'PATCH' && action === 'candidate') {
+          if (terminalDraftStatuses.has(String(draft.status))) {
+            send(response, 409, { error: 'terminal_draft_locked' });
+            return;
+          }
+          const candidate = findCandidateForDraft(draft);
+          if (!candidate) {
+            send(response, 404, { error: 'candidate_not_found' });
+            return;
+          }
+          const input = uasdCandidatePatchSchema.parse(await readJson(request));
+          const validationErrors = input.validationErrors || (candidate.validationErrors as unknown[]);
+          Object.assign(candidate, {
+            extractedCatalogJson: input.extractedCatalogJson,
+            validationErrors,
+            validationStatus: validationErrors.some((error) => (error as { severity?: unknown }).severity === 'error')
+              ? 'invalid'
+              : 'valid',
+            editedAt: new Date().toISOString(),
+          });
+          send(response, 200, { draft, candidate, summary: summarizeCandidate(candidate) });
           return;
         }
 

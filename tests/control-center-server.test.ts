@@ -91,7 +91,9 @@ describe('Control Center HTTP base', () => {
     const config = await getJson(`${baseUrl}/api/config/universities`);
 
     expect(wizard.status).toBe(200);
-    expect(await wizard.text()).toContain('New UASD draft');
+    const wizardHtml = await wizard.text();
+    expect(wizardHtml).toContain('New UASD draft');
+    expect(wizardHtml).toContain('Candidate Review');
     expect(config.response.status).toBe(200);
     expect(config.json.universities[0]).toMatchObject({
       id: 'uasd',
@@ -156,9 +158,28 @@ describe('Control Center HTTP base', () => {
         programCode: 'P-ICIV',
       },
     });
+    const review = await getJson(`${baseUrl}/api/uasd/pensum-drafts/${draftId}/review`);
+    const editedCatalog = structuredClone(review.json.candidate.extractedCatalogJson);
+    editedCatalog.periods[0].subjects[0].name = 'Edited Subject Name';
+    const editCandidate = await fetch(`${baseUrl}/api/uasd/pensum-drafts/${draftId}/candidate`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ extractedCatalogJson: editedCatalog }),
+    });
+    const editedReview = await getJson(`${baseUrl}/api/uasd/pensum-drafts/${draftId}/review`);
     const publish = await postJson(`${baseUrl}/api/uasd/pensum-drafts/${draftId}/publish`, {});
 
     expect(candidate.response.status).toBe(202);
+    expect(review.response.status).toBe(200);
+    expect(review.json.summary.periods).toBe(11);
+    expect(review.json.summary.subjects).toBeGreaterThan(0);
+    expect(review.json.candidate.extractedCatalogJson.periods[0].subjects[0]).toMatchObject({
+      code: 'BIO-0140',
+      credits: 3,
+    });
+    expect(editCandidate.status).toBe(200);
+    expect(editedReview.json.candidate.extractedCatalogJson.periods[0].subjects[0].name).toBe('Edited Subject Name');
+
     expect(app.snapshot().drafts[0]?.status).toBe('published');
     expect(publish.response.status).toBe(200);
     expect(publish.json.draft.status).toBe('published');
